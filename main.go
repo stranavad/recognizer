@@ -5,11 +5,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"recognizer/db"
 	"recognizer/exam"
+	"recognizer/files"
+	"recognizer/game"
 	"recognizer/group"
+	"recognizer/item"
 	"recognizer/types"
 )
 
 func main() {
+	//gin.SetMode(gin.ReleaseMode)
+
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
 		AllowAllOrigins: true,
@@ -20,6 +25,7 @@ func main() {
 
 	config := types.ServiceConfig{
 		DB: db.GetDB(),
+		S3: files.GetS3Client(),
 	}
 
 	/*
@@ -42,6 +48,32 @@ func main() {
 	groupGroup.POST("", groupService.CreateGroup)
 	groupGroup.PUT(":groupId", groupService.UpdateGroup)
 	groupGroup.DELETE(":groupId", groupService.DeleteGroup)
+
+	/*
+		Items
+	*/
+
+	itemsService := item.NewItemService(config)
+	itemGroup := r.Group("/items")
+	itemGroup.POST("", itemsService.CreateItem)
+	itemGroup.PUT(":itemId", itemsService.UpdateItem)
+	itemGroup.GET(":itemId", itemsService.GetItem)
+	itemGroup.DELETE(":itemId", itemsService.DeleteItem)
+	itemGroup.GET("/by-exam/:examId", itemsService.ListItems)
+
+	/*
+		Game
+	*/
+	gameService := game.NewGameService(config)
+	gameGroup := r.Group("/game")
+	gameGroup.GET("/:examId", gameService.GetItem)
+	gameGroup.POST("/result", gameService.GetResult)
+
+	/*
+		Files
+	*/
+	filesService := files.NewFilesService(config)
+	r.POST("/file", filesService.UploadFile)
 
 	err := r.Run()
 

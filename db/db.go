@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -31,16 +32,16 @@ type Group struct {
 
 type Item struct {
 	BaseModel
-	Name    string  `json:"name" binding:"required"`
-	Image   *string `json:"image"`
-	GroupId uint    `json:"groupId"`
-	ExamId  uint    `json:"examId"`
+	Name    string `json:"name" binding:"required"`
+	Image   string `json:"image"`
+	GroupId uint   `json:"groupId"`
+	ExamId  uint   `json:"examId"`
 }
 
 func GetDB() *gorm.DB {
 	envErr := godotenv.Load()
 	if envErr != nil {
-		panic("Error loading .env file")
+		fmt.Println("Error loading .env file")
 	}
 
 	connStr := os.Getenv("DATABASE_URL")

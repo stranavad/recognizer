@@ -35,34 +35,30 @@ func (service *Service) GetItem(c *gin.Context) {
 	randomIndex := rand.Intn(len(items))
 	randomItem := items[randomIndex]
 
-	var similarItems []*db.Item
-	for _, item := range items {
-		if item.ID != randomItem.ID && item.GroupId == randomItem.GroupId {
-			similarItems = append(similarItems, item)
+	var similarAnswers []string
+	for itemIndex, item := range items {
+		if itemIndex != randomIndex && item.GroupId == randomItem.GroupId {
+			similarAnswers = append(similarAnswers, item.Name)
 		}
 	}
 
 	// Now we'll shuffle these elements
-	rand.Shuffle(len(similarItems), func(i, j int) { similarItems[i], similarItems[j] = similarItems[i], similarItems[i] })
-	itemsToGet := len(similarItems)
+	rand.Shuffle(len(similarAnswers), func(i, j int) { similarAnswers[i], similarAnswers[j] = similarAnswers[j], similarAnswers[i] })
+	itemsToGet := len(similarAnswers)
 	if itemsToGet > 3 {
 		itemsToGet = 3
 	}
 
-	answersItems := similarItems[:itemsToGet]
-
-	answers := []string{randomItem.Name}
-	for _, item := range answersItems {
-		answers = append(answers, item.Name)
-	}
+	answersItems := similarAnswers[:itemsToGet]
+	answersItems = append(answersItems, randomItem.Name)
 
 	// Shuffle the answers
-	rand.Shuffle(len(answers), func(i, j int) { answers[i], answers[j] = answers[i], answers[i] })
+	rand.Shuffle(len(answersItems), func(i, j int) { answersItems[i], answersItems[j] = answersItems[j], answersItems[i] })
 
 	response := types.GameResponse{
 		ItemId:  randomItem.ID,
 		Image:   randomItem.Image,
-		Answers: answers,
+		Answers: answersItems,
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -71,7 +67,7 @@ func (service *Service) GetItem(c *gin.Context) {
 func (service *Service) GetResult(c *gin.Context) {
 	var data types.GetResult
 
-	if err := c.ShouldBindQuery(&data); err != nil {
+	if err := c.ShouldBindJSON(&data); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -79,5 +75,7 @@ func (service *Service) GetResult(c *gin.Context) {
 	var item *db.Item
 	service.DB.First(&item, data.ItemId)
 
-	c.JSON(http.StatusOK, gin.H{"correct": item.Name == data.Answer})
+	isCorrect := item.Name == data.Answer
+
+	c.JSON(http.StatusOK, gin.H{"correct": isCorrect})
 }

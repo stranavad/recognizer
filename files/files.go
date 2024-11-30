@@ -2,14 +2,16 @@ package files
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"recognizer/types"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"log"
-	"net/http"
-	"recognizer/types"
 )
 
 func GetS3Client() *s3.Client {
@@ -48,11 +50,15 @@ func (service *Service) UploadFile(c *gin.Context) {
 
 	key := uuid.New().String()
 
-	_, err = service.S3.PutObject(context.TODO(), &s3.PutObjectInput{
+	_, err = service.S3.PutObject(c.Request.Context(), &s3.PutObjectInput{
 		Bucket: aws.String("recognizer"),
 		Key:    aws.String(key),
 		Body:   f,
 	})
+
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 
 	c.JSON(200, gin.H{"url": key})
 }

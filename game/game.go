@@ -1,12 +1,13 @@
 package game
 
 import (
-	"github.com/gin-gonic/gin"
 	"math/rand"
 	"net/http"
 	"recognizer/db"
 	"recognizer/types"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Service struct {
@@ -37,7 +38,7 @@ func (service *Service) GetItem(c *gin.Context) {
 
 	var similarAnswers []string
 	for itemIndex, item := range items {
-		if itemIndex != randomIndex && item.GroupId == randomItem.GroupId {
+		if itemIndex != randomIndex && item.GroupID == randomItem.GroupID {
 			similarAnswers = append(similarAnswers, item.Name)
 		}
 	}
@@ -76,6 +77,14 @@ func (service *Service) GetResult(c *gin.Context) {
 	service.DB.First(&item, data.ItemId)
 
 	isCorrect := item.Name == data.Answer
+
+	scorePoint := db.ScorePoint{
+		UserID: c.MustGet("userId").(uint),
+		ExamID: item.ExamID,
+		ItemID: item.ID,
+		Correct: isCorrect,
+	}
+	service.DB.Create(scorePoint)
 
 	c.JSON(http.StatusOK, gin.H{"correct": isCorrect})
 }

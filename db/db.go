@@ -2,11 +2,12 @@ package db
 
 import (
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"os"
-	"time"
 )
 
 type BaseModel struct {
@@ -16,26 +17,59 @@ type BaseModel struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deletedAt"`
 }
 
-type Exam struct {
-	BaseModel
-	Name   string  `json:"name" binding:"required"`
-	Groups []Group `gorm:"foreignKey:ExamId" json:"groups"`
-	Items  []Item  `gorm:"foreignKey:ExamId" json:"items"`
-}
-
 type Group struct {
 	BaseModel
 	Name   string `json:"name" binding:"required"`
-	ExamId uint   `json:"examId" binding:"required"`
-	Items  []Item `gorm:"foreignKey:GroupId" json:"items"`
+	ExamID uint   `json:"examId" binding:"required"`
+	Items  []Item `json:"items"`
+	Exam Exam
+}
+
+type Exam struct {
+	BaseModel
+	Name   string  `json:"name" binding:"required"`
+	Groups []Group `json:"groups"`
+	Items  []Item  `json:"items"`
+	UserID uint
 }
 
 type Item struct {
 	BaseModel
 	Name    string `json:"name" binding:"required"`
 	Image   string `json:"image"`
-	GroupId uint   `json:"groupId"`
-	ExamId  uint   `json:"examId"`
+	GroupID uint   `json:"groupId"`
+	ExamID  uint   `json:"examId"`
+	Exam Exam
+}
+
+type User struct {
+	BaseModel
+	Username string `json:"username" gorm:"uniqueIndex"`
+	Password string
+	Exams []Exam
+}
+
+
+type ScorePoint struct {
+	BaseModel
+	ExamID uint
+	ItemID uint
+	UserID uint
+	Correct bool
+}
+
+
+
+func (user *User) ToSimpleUser() SimpleUser {
+	return SimpleUser{
+		ID:       user.ID,
+		Username: user.Username,
+	}
+}
+
+type SimpleUser struct {
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
 }
 
 func GetDB() *gorm.DB {
@@ -55,7 +89,7 @@ func GetDB() *gorm.DB {
 		panic("Failed to open database connection")
 	}
 
-	err = db.AutoMigrate(&Exam{}, &Group{}, &Item{})
+	err = db.AutoMigrate(&Group{}, &Item{}, &User{}, &Exam{}, &ScorePoint{})
 	if err != nil {
 		panic("Failed to auto migrate")
 	}

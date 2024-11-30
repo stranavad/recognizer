@@ -2,12 +2,13 @@ package item
 
 import (
 	"errors"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"net/http"
 	"recognizer/db"
 	"recognizer/types"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type Service struct {
@@ -21,16 +22,45 @@ func NewItemService(config types.ServiceConfig) Service {
 func (service *Service) CreateItem(c *gin.Context) {
 	var data types.CreateItem
 
+
 	if err := c.ShouldBindJSON(&data); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	// First try to find the exam
+	var exam *db.Exam
+	res := service.DB.Preload("Groups").First(&exam, data.ExamId)
+
+	if errors.Is(res.Error, gorm.ErrRecordNotFound){
+		c.JSON(http.StatusNotFound, gin.H{"error": "Exam not found"})
+		return
+	}
+
+	if exam.UserID != c.MustGet("userId").(uint) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Then we check the group
+	found := false
+    for _, item := range exam.Groups {
+        if item.ID == data.GroupId {
+            found = true
+            break
+        }
+    }
+
+    if !found {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Group not found"})
+        return
+    }
+
 	itemToCreate := db.Item{
 		Name:    data.Name,
 		Image:   data.Image,
-		GroupId: data.GroupId,
-		ExamId:  data.ExamId,
+		GroupID: data.GroupId,
+		ExamID:  data.ExamId,
 	}
 
 	service.DB.Create(&itemToCreate)
@@ -54,15 +84,21 @@ func (service *Service) UpdateItem(c *gin.Context) {
 	}
 
 	var foundItem *db.Item
-	res := service.DB.First(&foundItem, uint(itemIdParam))
+	res := service.DB.Preload("Exam").First(&foundItem, uint(itemIdParam))
 
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Item not found"})
 		return
 	}
 
+	// Authorization check
+	if foundItem.Exam.UserID != c.MustGet("userId").(uint){
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	foundItem.Name = data.Name
-	foundItem.GroupId = data.GroupId
+	foundItem.GroupID = data.GroupId
 	foundItem.Image = data.Image
 
 	service.DB.Save(&foundItem)
@@ -97,10 +133,16 @@ func (service *Service) DeleteItem(c *gin.Context) {
 	}
 
 	var foundItem *db.Item
-	res := service.DB.First(&foundItem, uint(itemIdParam))
+	res := service.DB.Preload("Exam").First(&foundItem, uint(itemIdParam))
 
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Item not found"})
+		return
+	}
+
+	// Authorization check
+	if foundItem.Exam.UserID != c.MustGet("userId").(uint){
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 

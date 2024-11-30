@@ -2,12 +2,13 @@ package group
 
 import (
 	"errors"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"net/http"
 	"recognizer/db"
 	"recognizer/types"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type Service struct {
@@ -35,6 +36,12 @@ func (service *Service) CreateGroup(c *gin.Context) {
 		return
 	}
 
+	// Authorization check
+	if foundExam.UserID != c.MustGet("userId").(uint){
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	// Check if group with this name already exists
 	groupExists := false
 	for _, value := range foundExam.Groups {
@@ -51,7 +58,7 @@ func (service *Service) CreateGroup(c *gin.Context) {
 
 	createdGroup := db.Group{
 		Name:   data.Name,
-		ExamId: data.ExamID,
+		ExamID: data.ExamID,
 	}
 
 	// Create and load group
@@ -69,10 +76,15 @@ func (service *Service) UpdateGroup(c *gin.Context) {
 	}
 
 	var foundGroup *db.Group
-	res := service.DB.First(&foundGroup, uint(groupIdParam))
+	res := service.DB.Preload("Exam").First(&foundGroup, uint(groupIdParam))
 
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Group not found"})
+		return
+	}
+
+	if foundGroup.Exam.UserID != c.MustGet("userId").(uint){
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -111,10 +123,15 @@ func (service *Service) DeleteGroup(c *gin.Context) {
 	}
 
 	var foundGroup *db.Group
-	res := service.DB.First(&foundGroup, uint(groupIdParam))
+	res := service.DB.Preload("Exam").First(&foundGroup, uint(groupIdParam))
 
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Group not found"})
+		return
+	}
+
+	if foundGroup.Exam.UserID != c.MustGet("userId").(uint){
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
